@@ -20,6 +20,13 @@ type Scores = {
   content: number;
 };
 
+type VoiceMetrics = {
+  wpm: number;
+  fillers: number;
+  pauses: number;
+  confidence: number;
+};
+
 type Interview = {
   id: string;
   title: string;
@@ -28,6 +35,8 @@ type Interview = {
   mode: string;
   difficulty: string;
   scores: Scores;
+  transcript?: string;
+  voice_metrics?: VoiceMetrics;
 };
 
 export default function Results() {
@@ -75,10 +84,30 @@ export default function Results() {
       </p>
 
       <div className="flex gap-2 mb-6">
-        <TabButton active={tab === "overview"} onClick={() => setTab("overview")} icon={<BarChart3 size={16} />} label="Overview" />
-        <TabButton active={tab === "voice"} onClick={() => setTab("voice")} icon={<Mic size={16} />} label="Voice" />
-        <TabButton active={tab === "body"} onClick={() => setTab("body")} icon={<Eye size={16} />} label="Body" />
-        <TabButton active={tab === "answers"} onClick={() => setTab("answers")} icon={<Brain size={16} />} label="Answers" />
+        <TabButton
+          active={tab === "overview"}
+          onClick={() => setTab("overview")}
+          icon={<BarChart3 size={16} />}
+          label="Overview"
+        />
+        <TabButton
+          active={tab === "voice"}
+          onClick={() => setTab("voice")}
+          icon={<Mic size={16} />}
+          label="Voice"
+        />
+        <TabButton
+          active={tab === "body"}
+          onClick={() => setTab("body")}
+          icon={<Eye size={16} />}
+          label="Body"
+        />
+        <TabButton
+          active={tab === "answers"}
+          onClick={() => setTab("answers")}
+          icon={<Brain size={16} />}
+          label="Answers"
+        />
       </div>
 
       {tab === "overview" && (
@@ -107,10 +136,54 @@ export default function Results() {
           </div>
         </>
       )}
+      {tab === "voice" && (
+        <div className="grid md:grid-cols-4 gap-4">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">WPM</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.voice_metrics?.wpm ?? "-"}
+            </div>
+          </div>
 
-      {tab !== "overview" && (
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Fillers</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.voice_metrics?.fillers ?? "-"}
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Pauses</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.voice_metrics?.pauses ?? "-"}
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Voice Confidence</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.voice_metrics?.confidence ?? "-"}
+            </div>
+          </div>
+
+          {data.transcript && (
+            <div className="md:col-span-4 bg-white/5 border border-white/10 rounded-xl p-5">
+              <div className="text-gray-400 text-sm mb-2">Transcript</div>
+              <p className="text-sm leading-relaxed">{data.transcript}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "body" && (
         <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-          Detailed metrics for {tab} will appear here.
+          Body language metrics will appear here.
+        </div>
+      )}
+
+      {tab === "answers" && (
+        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+          Answer quality analysis will appear here.
         </div>
       )}
     </div>

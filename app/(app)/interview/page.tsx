@@ -15,7 +15,7 @@ export default function Interview() {
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const total = 7;
+  const total = 2;
 
   // Start camera on mount
   useEffect(() => {

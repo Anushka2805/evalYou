@@ -5,8 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import UPLOAD_DIR
 from crud import create_interview, get_interview, get_all_interviews
 
-from audio_utils import extract_audio
 from whisper_utils import transcribe_audio
+from voice_metrics import compute_voice_metrics
+from audio_utils import extract_audio, get_audio_duration_sec
 
 app = FastAPI()
 
@@ -73,10 +74,16 @@ def analyze(interview_id: str):
     # 2) Transcribe with Whisper
     transcript = transcribe_audio(wav_path)
 
-    # 3) Fake scores for now (next step we’ll compute real metrics)
+    # 3) Duration
+    duration_sec = get_audio_duration_sec(wav_path)
+
+    # 4) Voice metrics
+    voice = compute_voice_metrics(transcript, duration_sec)
+
+    # 5) Keep your (temporary) scores
     fake_scores = {
         "overall": 78,
-        "confidence": 75,
+        "confidence": voice["confidence"],
         "communication": 80,
         "body": 72,
         "content": 82,
@@ -84,11 +91,13 @@ def analyze(interview_id: str):
 
     interview["scores"] = fake_scores
     interview["transcript"] = transcript
+    interview["voice_metrics"] = voice
 
     return {
         "id": interview_id,
         "scores": fake_scores,
         "transcript": transcript,
+        "voice_metrics": voice,
     }
 
 # Get single interview
