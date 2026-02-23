@@ -8,6 +8,7 @@ from crud import create_interview, get_interview, get_all_interviews
 from whisper_utils import transcribe_audio
 from voice_metrics import compute_voice_metrics
 from audio_utils import extract_audio, get_audio_duration_sec
+from answer_metrics import compute_answer_metrics
 
 app = FastAPI()
 
@@ -79,6 +80,9 @@ def analyze(interview_id: str):
 
     # 4) Voice metrics
     voice = compute_voice_metrics(transcript, duration_sec)
+    question_text = "Can you explain the concept of object-oriented programming and how it differs from procedural programming?"
+    answer = transcript or ""
+    answer_metrics = compute_answer_metrics(question_text, answer, voice["fillers"])
 
     # 5) Keep your (temporary) scores
     fake_scores = {
@@ -86,18 +90,20 @@ def analyze(interview_id: str):
         "confidence": voice["confidence"],
         "communication": 80,
         "body": 72,
-        "content": 82,
+        "content": int(round((answer_metrics["relevance"] + answer_metrics["clarity"] + answer_metrics["structure"] + answer_metrics["completeness"]) / 4)),
     }
 
     interview["scores"] = fake_scores
     interview["transcript"] = transcript
     interview["voice_metrics"] = voice
+    interview["answer_metrics"] = answer_metrics
 
     return {
         "id": interview_id,
         "scores": fake_scores,
         "transcript": transcript,
         "voice_metrics": voice,
+        "answer_metrics": answer_metrics,
     }
 
 # Get single interview

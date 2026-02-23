@@ -27,6 +27,13 @@ type VoiceMetrics = {
   confidence: number;
 };
 
+type AnswerMetrics = {
+  relevance: number;
+  completeness: number;
+  clarity: number;
+  structure: number;
+};
+
 type Interview = {
   id: string;
   title: string;
@@ -37,6 +44,7 @@ type Interview = {
   scores: Scores;
   transcript?: string;
   voice_metrics?: VoiceMetrics;
+  answer_metrics?: AnswerMetrics;
 };
 
 export default function Results() {
@@ -182,8 +190,38 @@ export default function Results() {
       )}
 
       {tab === "answers" && (
-        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-          Answer quality analysis will appear here.
+        <div className="grid md:grid-cols-4 gap-4">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Relevance</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.answer_metrics?.relevance ?? "-"}
+            </div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Completeness</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.answer_metrics?.completeness ?? "-"}
+            </div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Clarity</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.answer_metrics?.clarity ?? "-"}
+            </div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Structure</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.answer_metrics?.structure ?? "-"}
+            </div>
+          </div>
+
+          {data.transcript && (
+            <div className="md:col-span-4 bg-white/5 border border-white/10 rounded-xl p-5">
+              <div className="text-gray-400 text-sm mb-2">Transcript</div>
+              <p className="text-sm leading-relaxed">{data.transcript}</p>
+            </div>
+          )}
         </div>
       )}
     </div>
