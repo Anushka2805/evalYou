@@ -34,6 +34,12 @@ type AnswerMetrics = {
   structure: number;
 };
 
+type BodyMetrics = {
+  eye_contact_pct: number;
+  head_movement: number;
+  engagement: number;
+};
+
 type Interview = {
   id: string;
   title: string;
@@ -45,6 +51,7 @@ type Interview = {
   transcript?: string;
   voice_metrics?: VoiceMetrics;
   answer_metrics?: AnswerMetrics;
+  body_metrics?: BodyMetrics;
 };
 
 export default function Results() {
@@ -184,8 +191,25 @@ export default function Results() {
       )}
 
       {tab === "body" && (
-        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-          Body language metrics will appear here.
+        <div className="grid md:grid-cols-3 gap-4">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Eye Contact %</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.body_metrics?.eye_contact_pct ?? "-"}
+            </div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Head Movement</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.body_metrics?.head_movement ?? "-"}
+            </div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Engagement</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.body_metrics?.engagement ?? "-"}
+            </div>
+          </div>
         </div>
       )}
 

@@ -9,6 +9,7 @@ from whisper_utils import transcribe_audio
 from voice_metrics import compute_voice_metrics
 from audio_utils import extract_audio, get_audio_duration_sec
 from answer_metrics import compute_answer_metrics
+from body_metrics import analyze_body
 
 app = FastAPI()
 
@@ -68,6 +69,9 @@ def analyze(interview_id: str):
 
     video_path = interview["video_path"]
     wav_path = video_path.replace(".webm", ".wav")
+    body = analyze_body(video_path)
+
+    interview["body_metrics"] = body
 
     # 1) Extract audio
     extract_audio(video_path, wav_path)
@@ -104,6 +108,7 @@ def analyze(interview_id: str):
         "transcript": transcript,
         "voice_metrics": voice,
         "answer_metrics": answer_metrics,
+        "body_metrics": body,
     }
 
 # Get single interview
