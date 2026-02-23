@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Mic, Square, StepForward, RotateCcw, Play } from "lucide-react";
+import { Mic, Square, StepForward, RotateCcw } from "lucide-react";
 
-type State = "idle" | "recording" | "review";
+type State = "idle" | "recording" | "review" | "uploading";
 
 export default function Interview() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -12,7 +12,8 @@ export default function Interview() {
   const [state, setState] = useState<State>("idle");
   const [questionIndex, setQuestionIndex] = useState(0);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const total = 7;
 
@@ -25,47 +26,39 @@ export default function Interview() {
           audio: true,
         });
         setStream(s);
-        if (videoRef.current) {
-          videoRef.current.srcObject = s;
-        }
+        if (videoRef.current) videoRef.current.srcObject = s;
       } catch (err) {
-        console.error("Error accessing camera/mic:", err);
         alert("Could not access camera or microphone.");
       }
     };
-
     init();
 
     return () => {
-      // cleanup on unmount
-      if (stream) {
-        stream.getTracks().forEach((t) => t.stop());
-      }
+      if (stream) stream.getTracks().forEach((t) => t.stop());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startRecording = () => {
     if (!stream) return;
-
     chunksRef.current = [];
     const recorder = new MediaRecorder(stream);
     mediaRecorderRef.current = recorder;
 
     recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) {
-        chunksRef.current.push(e.data);
-      }
+      if (e.data.size > 0) chunksRef.current.push(e.data);
     };
 
     recorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: "video/webm" });
       const url = URL.createObjectURL(blob);
-      setRecordedUrl(url);
+      setRecordedBlob(blob);
+      setPreviewUrl(url);
     };
 
     recorder.start();
-    setRecordedUrl(null);
+    setRecordedBlob(null);
+    setPreviewUrl(null);
     setState("recording");
   };
 
@@ -77,16 +70,53 @@ export default function Interview() {
   };
 
   const retake = () => {
-    setRecordedUrl(null);
+    setRecordedBlob(null);
+    setPreviewUrl(null);
     setState("idle");
+  };
+
+  // Upload + analyze (only on LAST question)
+  const finishInterview = async () => {
+    if (!recordedBlob) {
+      alert("No recording found!");
+      return;
+    }
+    try {
+      setState("uploading");
+
+      // 1) Upload
+      const form = new FormData();
+      form.append("file", recordedBlob, "answer.webm");
+
+      const uploadRes = await fetch("http://127.0.0.1:8000/upload", {
+        method: "POST",
+        body: form,
+      });
+      const uploadData = await uploadRes.json();
+      const interviewId = uploadData.interview_id;
+
+      // 2) Analyze
+      await fetch(`http://127.0.0.1:8000/analyze/${interviewId}`, {
+        method: "POST",
+      });
+
+      // 3) Go to results page with id
+      window.location.href = `/results?id=${interviewId}`;
+    } catch (err) {
+      console.error(err);
+      alert("Upload failed");
+      setState("review");
+    }
   };
 
   const next = () => {
     if (questionIndex + 1 >= total) {
-      window.location.href = "/analyzing";
+      // Last question → upload + analyze
+      finishInterview();
     } else {
       setQuestionIndex((q) => q + 1);
-      setRecordedUrl(null);
+      setRecordedBlob(null);
+      setPreviewUrl(null);
       setState("idle");
     }
   };
@@ -123,17 +153,17 @@ export default function Interview() {
         />
 
         {/* Playback preview */}
-        {state === "review" && recordedUrl && (
-          <video
-            src={recordedUrl}
-            controls
-            className="w-full h-full object-cover"
-          />
+        {state === "review" && previewUrl && (
+          <video src={previewUrl} controls className="w-full h-full object-cover" />
         )}
 
-        {/* Overlay text */}
+        {/* Overlay */}
         <div className="absolute top-4 left-4 text-sm text-gray-200 bg-black/50 px-3 py-1 rounded">
-          {state === "recording" ? "Recording..." : "Camera Preview"}
+          {state === "recording"
+            ? "Recording..."
+            : state === "uploading"
+            ? "Uploading..."
+            : "Camera Preview"}
         </div>
 
         {/* Controls */}
@@ -142,6 +172,7 @@ export default function Interview() {
             <button
               className="flex items-center gap-2 text-gray-300 hover:text-white"
               onClick={retake}
+              disabled={false}
             >
               <RotateCcw size={18} /> Retake
             </button>
@@ -169,8 +200,9 @@ export default function Interview() {
             <button
               className="flex items-center gap-2 text-gray-300 hover:text-white"
               onClick={next}
+              disabled={false}
             >
-              Next <StepForward size={18} />
+              {questionIndex + 1 >= total ? "Finish" : "Next"} <StepForward size={18} />
             </button>
           )}
         </div>
@@ -180,7 +212,7 @@ export default function Interview() {
       <div className="col-span-2 space-y-4">
         <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
           <div className="text-2xl font-bold">
-            {state === "recording" ? "● REC" : "00:00"}
+            {state === "recording" ? "● REC" : state === "uploading" ? "..." : "00:00"}
           </div>
           <div className="text-sm text-gray-400">Current answer</div>
         </div>
@@ -188,12 +220,6 @@ export default function Interview() {
           <div className="text-2xl font-bold">{questionIndex + 1}</div>
           <div className="text-sm text-gray-400">of {total}</div>
         </div>
-        <a
-          href="/analyzing"
-          className="block text-center bg-blue-600 py-2 rounded-lg hover:bg-blue-500 transition"
-        >
-          Save & Exit
-        </a>
       </div>
     </div>
   );

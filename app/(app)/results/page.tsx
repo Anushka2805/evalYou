@@ -1,7 +1,7 @@
 "use client";
-import { useInterviewStore } from "@/store/useInterviewStore";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { BarChart3, Mic, Eye, Brain } from "lucide-react";
-import { useState } from "react";
 import TabButton from "@/components/TabButton";
 import {
   RadarChart,
@@ -12,11 +12,50 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-export default function Results() {
-  const { interviews, selectedId } = useInterviewStore();
-  const data = interviews.find((i) => i.id === selectedId) || interviews[0];
+type Scores = {
+  overall: number;
+  confidence: number;
+  communication: number;
+  body: number;
+  content: number;
+};
 
+type Interview = {
+  id: string;
+  title: string;
+  date: string;
+  role: string;
+  mode: string;
+  difficulty: string;
+  scores: Scores;
+};
+
+export default function Results() {
+  const params = useSearchParams();
+  const id = params.get("id");
+
+  const [data, setData] = useState<Interview | null>(null);
+  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"overview" | "voice" | "body" | "answers">("overview");
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!id) return;
+      const res = await fetch(`http://127.0.0.1:8000/results/${id}`);
+      const json = await res.json();
+      setData(json);
+      setLoading(false);
+    };
+    fetchData();
+  }, [id]);
+
+  if (loading) {
+    return <div className="text-gray-400">Loading results...</div>;
+  }
+
+  if (!data) {
+    return <div className="text-red-400">No data found.</div>;
+  }
 
   const radarData = [
     { metric: "Confidence", value: data.scores.confidence },
