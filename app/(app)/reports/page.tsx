@@ -1,7 +1,16 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+;
 type Scores = {
   overall: number;
   confidence: number;
@@ -22,6 +31,14 @@ type Interview = {
 
 export default function ReportsPage() {
   const [data, setData] = useState<Interview[]>([]);
+  const chartData = data
+  .filter((i) => i.scores && typeof i.scores.overall === "number")
+  .map((i) => ({
+    date: i.date || "N/A",
+    overall: i.scores?.overall ?? 0,
+    confidence: i.scores?.confidence ?? 0,
+    content: i.scores?.content ?? 0,
+  }));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -50,7 +67,24 @@ export default function ReportsPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Interview History</h1>
-
+{chartData.length > 0 && (
+  <div className="bg-white/5 border border-white/10 rounded-xl p-6 mb-6">
+    <h2 className="font-semibold mb-4">Performance Trend</h2>
+    <div className="h-72">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="date" />
+          <YAxis domain={[0, 100]} />
+          <Tooltip />
+          <Line type="monotone" dataKey="overall" stroke="#3b82f6" strokeWidth={2} />
+          <Line type="monotone" dataKey="confidence" stroke="#22c55e" strokeWidth={2} />
+          <Line type="monotone" dataKey="content" stroke="#f59e0b" strokeWidth={2} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  </div>
+)}
       <div className="space-y-3">
         {data.map((i) => (
           <Link
