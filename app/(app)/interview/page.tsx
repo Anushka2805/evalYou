@@ -5,6 +5,7 @@ import { Mic, Square, StepForward, RotateCcw } from "lucide-react";
 type State = "idle" | "recording" | "review" | "uploading";
 
 export default function Interview() {
+  const token = localStorage.getItem("token");
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -90,6 +91,9 @@ export default function Interview() {
 
       const uploadRes = await fetch("http://127.0.0.1:8000/upload", {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         body: form,
       });
       const uploadData = await uploadRes.json();
@@ -98,6 +102,9 @@ export default function Interview() {
       // 2) Analyze
       await fetch(`http://127.0.0.1:8000/analyze/${interviewId}`, {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       // 3) Go to results page with id
@@ -162,8 +169,8 @@ export default function Interview() {
           {state === "recording"
             ? "Recording..."
             : state === "uploading"
-            ? "Uploading..."
-            : "Camera Preview"}
+              ? "Uploading..."
+              : "Camera Preview"}
         </div>
 
         {/* Controls */}

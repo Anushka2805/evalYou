@@ -42,11 +42,18 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchAll = async () => {
-      try {
-        const res = await fetch("http://127.0.0.1:8000/interviews");
-        const json = await res.json();
-        setData(json || []);
+  const fetchAll = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await fetch("http://127.0.0.1:8000/interviews", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const json = await res.json();
+      setData(json || []);
       } catch (e) {
         console.error(e);
       } finally {

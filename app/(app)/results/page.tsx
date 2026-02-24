@@ -57,6 +57,7 @@ type Interview = {
 export default function Results() {
   const params = useSearchParams();
   const id = params.get("id");
+  const token = localStorage.getItem("token");
 
   const [data, setData] = useState<Interview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,8 +66,11 @@ export default function Results() {
   useEffect(() => {
     const fetchData = async () => {
       if (!id) return;
-      const res = await fetch(`http://127.0.0.1:8000/results/${id}`);
-      const json = await res.json();
+      const res = await fetch(`http://127.0.0.1:8000/results/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }); const json = await res.json();
       setData(json);
       setLoading(false);
     };
@@ -82,11 +86,11 @@ export default function Results() {
   }
 
   const radarData = [
-    { metric: "Confidence", value: data.scores.confidence },
-    { metric: "Communication", value: data.scores.communication },
-    { metric: "Body", value: data.scores.body },
-    { metric: "Content", value: data.scores.content },
-    { metric: "Overall", value: data.scores.overall },
+    { metric: "Confidence", value: data?.scores?.confidence ?? 0 },
+    { metric: "Communication", value: data?.scores?.communication ?? 0 },
+    { metric: "Body", value: data?.scores?.body ?? 0 },
+    { metric: "Content", value: data?.scores?.content ?? 0 },
+    { metric: "Overall", value: data?.scores?.overall ?? 0 },
   ];
 
   return (
@@ -128,11 +132,10 @@ export default function Results() {
       {tab === "overview" && (
         <>
           <div className="grid md:grid-cols-5 gap-4 mb-8">
-            {Object.entries(data.scores).map(([k, v]) => (
-              <div key={k} className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
-                <div className="text-gray-400 text-sm capitalize">{k}</div>
-                <div className="text-3xl font-bold text-blue-400">{v}</div>
-              </div>
+            {Object.entries(data?.scores ?? {}).map(([k, v]) => (<div key={k} className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+              <div className="text-gray-400 text-sm capitalize">{k}</div>
+              <div className="text-3xl font-bold text-blue-400">{v}</div>
+            </div>
             ))}
           </div>
 
