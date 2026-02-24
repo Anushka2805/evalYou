@@ -1,29 +1,23 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useInterviewStore } from "@/store/useInterviewStore";
+import { useState } from "react";
 
 export default function NewInterview() {
   const router = useRouter();
-  const addInterview = useInterviewStore((s) => s.addInterview);
+
+  const [role, setRole] = useState("Software Engineer");
+  const [mode, setMode] = useState<"Friendly" | "Neutral" | "Stress">("Neutral");
+  const [difficulty, setDifficulty] = useState<"Easy" | "Medium" | "Hard">("Medium");
 
   const start = () => {
-    const id = Date.now().toString();
-    addInterview({
-      id,
-      title: "New Mock Interview",
-      date: new Date().toISOString().slice(0, 10),
-      role: "Software Engineer",
-      mode: "Neutral",
-      difficulty: "Medium",
-      scores: {
-        overall: Math.floor(60 + Math.random() * 30),
-        confidence: Math.floor(60 + Math.random() * 30),
-        communication: Math.floor(60 + Math.random() * 30),
-        body: Math.floor(60 + Math.random() * 30),
-        content: Math.floor(60 + Math.random() * 30),
-      },
+    const params = new URLSearchParams({
+      role,
+      mode,
+      difficulty,
     });
-router.push("/interview");  };
+
+    router.push(`/interview?${params.toString()}`);
+  };
 
   return (
     <div className="flex justify-center">
@@ -31,27 +25,56 @@ router.push("/interview");  };
         <h1 className="text-xl font-semibold mb-4">New Mock Interview</h1>
 
         <div className="space-y-4">
-          <select className="w-full bg-black/40 border border-white/10 rounded-lg p-3">
+          {/* Role */}
+          <select
+            className="w-full bg-black/40 border border-white/10 rounded-lg p-3"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+          >
             <option>Software Engineer</option>
+            <option>Frontend Developer</option>
+            <option>Backend Developer</option>
+            <option>Data Analyst</option>
           </select>
 
+          {/* Mode */}
           <div className="grid grid-cols-3 gap-3">
-            {["Friendly", "Neutral", "Stress"].map((m) => (
-              <div key={m} className="border border-white/10 rounded-lg p-3 text-center">
+            {(["Friendly", "Neutral", "Stress"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`border rounded-lg p-3 text-center transition ${
+                  mode === m
+                    ? "border-blue-500 bg-blue-500/10"
+                    : "border-white/10 hover:border-blue-500/50"
+                }`}
+              >
                 {m}
-              </div>
+              </button>
             ))}
           </div>
 
+          {/* Difficulty */}
           <div className="grid grid-cols-3 gap-3">
-            {["Easy", "Medium", "Hard"].map((d) => (
-              <div key={d} className="border border-white/10 rounded-lg p-3 text-center">
+            {(["Easy", "Medium", "Hard"] as const).map((d) => (
+              <button
+                key={d}
+                onClick={() => setDifficulty(d)}
+                className={`border rounded-lg p-3 text-center transition ${
+                  difficulty === d
+                    ? "border-blue-500 bg-blue-500/10"
+                    : "border-white/10 hover:border-blue-500/50"
+                }`}
+              >
                 {d}
-              </div>
+              </button>
             ))}
           </div>
 
-          <button onClick={start} className="w-full bg-blue-600 py-3 rounded-lg">
+          <button
+            onClick={start}
+            className="w-full bg-blue-600 hover:bg-blue-500 transition py-3 rounded-lg"
+          >
             Start Interview ▶
           </button>
         </div>

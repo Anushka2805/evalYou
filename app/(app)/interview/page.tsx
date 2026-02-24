@@ -1,11 +1,18 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Mic, Square, StepForward, RotateCcw } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
 
 type State = "idle" | "recording" | "review" | "uploading";
 
 export default function Interview() {
-  const token = localStorage.getItem("token");
+  const params = useSearchParams();
+  const router = useRouter();
+
+  const role = params.get("role") || "Software Engineer";
+  const mode = params.get("mode") || "Neutral";
+  const difficulty = params.get("difficulty") || "Medium";
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -76,18 +83,28 @@ export default function Interview() {
     setState("idle");
   };
 
-  // Upload + analyze (only on LAST question)
+  // Upload + analyze
   const finishInterview = async () => {
     if (!recordedBlob) {
       alert("No recording found!");
       return;
     }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/auth/signin");
+      return;
+    }
+
     try {
       setState("uploading");
 
       // 1) Upload
       const form = new FormData();
       form.append("file", recordedBlob, "answer.webm");
+      form.append("role", role);
+      form.append("mode", mode);
+      form.append("difficulty", difficulty);
 
       const uploadRes = await fetch("http://127.0.0.1:8000/upload", {
         method: "POST",
@@ -96,29 +113,37 @@ export default function Interview() {
         },
         body: form,
       });
+
+      if (!uploadRes.ok) {
+        throw new Error("Upload failed");
+      }
+
       const uploadData = await uploadRes.json();
       const interviewId = uploadData.interview_id;
 
       // 2) Analyze
-      await fetch(`http://127.0.0.1:8000/analyze/${interviewId}`, {
+      const analyzeRes = await fetch(`http://127.0.0.1:8000/analyze/${interviewId}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      // 3) Go to results page with id
-      window.location.href = `/results?id=${interviewId}`;
+      if (!analyzeRes.ok) {
+        throw new Error("Analyze failed");
+      }
+
+      // 3) Go to results page
+      router.push(`/results?id=${interviewId}`);
     } catch (err) {
       console.error(err);
-      alert("Upload failed");
+      alert("Upload or analysis failed");
       setState("review");
     }
   };
 
   const next = () => {
     if (questionIndex + 1 >= total) {
-      // Last question → upload + analyze
       finishInterview();
     } else {
       setQuestionIndex((q) => q + 1);
@@ -145,7 +170,9 @@ export default function Interview() {
           Can you explain the concept of object-oriented programming and how it
           differs from procedural programming?
         </p>
-        <div className="mt-4 text-sm text-gray-400">Mode: Neutral</div>
+        <div className="mt-4 text-sm text-gray-400">
+          {role} · {mode} · {difficulty}
+        </div>
       </div>
 
       {/* Center: Video */}
@@ -178,10 +205,9 @@ export default function Interview() {
           {state === "review" && (
             <button
               className="flex items-center gap-2 text-gray-300 hover:text-white"
-              onClick={retake}
-              disabled={false}
+              onClick={next}
             >
-              <RotateCcw size={18} /> Retake
+              Finish <StepForward size={18} />
             </button>
           )}
 
@@ -206,10 +232,9 @@ export default function Interview() {
           {state === "review" && (
             <button
               className="flex items-center gap-2 text-gray-300 hover:text-white"
-              onClick={next}
-              disabled={false}
+              onClick={retake}
             >
-              {questionIndex + 1 >= total ? "Finish" : "Next"} <StepForward size={18} />
+              <RotateCcw size={18} /> Retake
             </button>
           )}
         </div>
