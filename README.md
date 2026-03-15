@@ -154,7 +154,7 @@ Database
 
 ```bash
 git clone https://github.com/Anushka2805/evalYou.git
-cd evalyou
+cd evalYou
 ```
 
 ---
@@ -180,13 +180,14 @@ pip install -r requirements.txt
 ## Run Backend
 
 ```bash
-python main.py
+cd backend
+python -m uvicorn main:app --reload
 ```
 
 Backend runs on
 
 ```
-http://localhost:8000
+http://127.0.0.1:8000
 ```
 
 ---
@@ -216,7 +217,7 @@ http://localhost:3000
 # Project Structure
 
 ```
-EvalYou
+evalYou
 │
 ├── app
 │   ├── (app)
