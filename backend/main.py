@@ -3,7 +3,7 @@ import uuid
 from fastapi import FastAPI, UploadFile, File, Depends, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from config import UPLOAD_DIR
-
+import random
 from repositories import create_interview, update_interview, get_interview, list_interviews_by_user
 from users_repo import create_user, get_user_by_email, get_user_by_id
 from auth import hash_password, verify_password, create_access_token, decode_token
@@ -15,6 +15,73 @@ from answer_metrics import compute_answer_metrics
 from body_metrics import analyze_body
 
 app = FastAPI()
+# --------- Question Bank ---------
+
+QUESTION_BANK = {
+
+    "Software Engineer": {
+        "Easy": [
+            "Tell me about yourself.",
+            "What is object oriented programming?",
+            "Explain difference between stack and queue."
+        ],
+        "Medium": [
+            "Explain REST APIs.",
+            "What is database indexing?",
+            "Describe a challenging bug you fixed."
+        ],
+        "Hard": [
+            "Design a scalable URL shortener.",
+            "Explain CAP theorem.",
+            "How would you design a distributed cache?"
+        ]
+    },
+
+    "Frontend Developer": {
+        "Easy": [
+            "What is semantic HTML?",
+            "Difference between let, var and const?"
+        ],
+        "Medium": [
+            "Explain React Virtual DOM.",
+            "How does useEffect work?"
+        ],
+        "Hard": [
+            "How would you optimize React performance?",
+            "Explain SSR vs CSR."
+        ]
+    },
+
+    "Backend Developer": {
+        "Easy": [
+            "What is an API?",
+            "Difference between SQL and NoSQL?"
+        ],
+        "Medium": [
+            "Explain microservices architecture.",
+            "What is JWT authentication?"
+        ],
+        "Hard": [
+            "Design a rate limiter.",
+            "How would you scale backend to millions of users?"
+        ]
+    },
+
+    "Data Analyst": {
+        "Easy": [
+            "What is data cleaning?",
+            "Difference between mean and median?"
+        ],
+        "Medium": [
+            "Explain SQL joins.",
+            "What is hypothesis testing?"
+        ],
+        "Hard": [
+            "How would you detect anomalies in data?",
+            "Explain A/B testing."
+        ]
+    }
+}
 
 # CORS
 app.add_middleware(
@@ -89,7 +156,14 @@ def login(data: dict):
 # --------- Upload ---------
 
 @app.post("/upload")
-async def upload_video(file: UploadFile = File(...), user=Depends(get_current_user)):
+async def upload_video(
+    file: UploadFile = File(...),
+    role: str = File(...),
+    mode: str = File(...),
+    difficulty: str = File(...),
+    question: str = File(...),
+    user=Depends(get_current_user)
+):
     interview_id = str(uuid.uuid4())
     filename = f"{interview_id}.webm"
     filepath = os.path.join(UPLOAD_DIR, filename)
@@ -103,9 +177,10 @@ async def upload_video(file: UploadFile = File(...), user=Depends(get_current_us
         "user_id": user["id"],
         "title": "Mock Interview",
         "date": "2026-02-23",
-        "role": "Software Engineer",
-        "mode": "Neutral",
-        "difficulty": "Medium",
+        "role": role,
+        "mode": mode,
+        "difficulty": difficulty,
+        "question": question,
         "video_path": filepath,
         "scores": {},
         "transcript": "",
@@ -137,7 +212,7 @@ def analyze(interview_id: str, user=Depends(get_current_user)):
 
     voice = compute_voice_metrics(transcript, duration_sec)
 
-    question_text = "Can you explain OOP vs procedural programming?"
+    question_text = interview.get("question", "")
     answer_metrics = compute_answer_metrics(question_text, transcript or "", voice.get("fillers", 0))
 
     content_score = int(round(
@@ -176,3 +251,23 @@ def get_results(interview_id: str, user=Depends(get_current_user)):
 @app.get("/interviews")
 def get_all(user=Depends(get_current_user)):
     return list_interviews_by_user(user["id"])
+
+# --------- Generate Questions ---------
+
+@app.post("/generate-questions")
+def generate_questions(data: dict):
+
+    role = data.get("role", "Software Engineer")
+    difficulty = data.get("difficulty", "Medium")
+
+    role_questions = QUESTION_BANK.get(role, {})
+    diff_questions = role_questions.get(difficulty, [])
+
+    if not diff_questions:
+        diff_questions = ["Tell me about yourself."]
+
+    questions = random.sample(diff_questions, min(5, len(diff_questions)))
+
+    return {
+        "questions": questions
+    }

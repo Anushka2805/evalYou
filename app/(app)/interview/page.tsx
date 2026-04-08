@@ -19,12 +19,12 @@ export default function Interview() {
 
   const [state, setState] = useState<State>("idle");
   const [questionIndex, setQuestionIndex] = useState(0);
+  const [questions, setQuestions] = useState<string[]>([]);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const total = 1;
-
+  const total = questions.length;
   // Start camera on mount
   useEffect(() => {
     const init = async () => {
@@ -45,6 +45,19 @@ export default function Interview() {
       if (stream) stream.getTracks().forEach((t) => t.stop());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("interview_questions");
+
+    if (stored) {
+      setQuestions(JSON.parse(stored));
+    } else {
+      // fallback question
+      setQuestions([
+        "Tell me about yourself."
+      ]);
+    }
   }, []);
 
   const startRecording = () => {
@@ -105,7 +118,7 @@ export default function Interview() {
       form.append("role", role);
       form.append("mode", mode);
       form.append("difficulty", difficulty);
-
+      form.append("question", questions[questionIndex] || "");
       const uploadRes = await fetch("http://127.0.0.1:8000/upload", {
         method: "POST",
         headers: {
@@ -142,16 +155,68 @@ export default function Interview() {
     }
   };
 
-  const next = () => {
+  const next = async () => {
+  if (!recordedBlob) {
+    alert("Please record your answer first");
+    return;
+  }
+
+  try {
+    setState("uploading");
+
+    const token = localStorage.getItem("token");
+
+    const form = new FormData();
+    form.append("file", recordedBlob, "answer.webm");
+    form.append("role", role);
+    form.append("mode", mode);
+    form.append("difficulty", difficulty);
+    form.append("question", questions[questionIndex]);
+
+    const uploadRes = await fetch("http://127.0.0.1:8000/upload", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: form,
+    });
+
+    if (!uploadRes.ok) {
+      throw new Error("Upload failed");
+    }
+
+    const data = await uploadRes.json();
+    const interviewId = data.interview_id;
+
+    const analyzeRes = await fetch(
+      `http://127.0.0.1:8000/analyze/${interviewId}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!analyzeRes.ok) {
+      throw new Error("Analyze failed");
+    }
+
     if (questionIndex + 1 >= total) {
-      finishInterview();
+      router.push("/reports");
     } else {
       setQuestionIndex((q) => q + 1);
       setRecordedBlob(null);
       setPreviewUrl(null);
       setState("idle");
     }
-  };
+
+  } catch (err) {
+    console.error(err);
+    alert("Something went wrong!");
+    setState("review");
+  }
+};
 
   return (
     <div className="grid grid-cols-12 gap-6">
@@ -166,11 +231,7 @@ export default function Interview() {
             style={{ width: `${((questionIndex + 1) / total) * 100}%` }}
           />
         </div>
-        <p>
-          Can you explain the concept of object-oriented programming and how it
-          differs from procedural programming?
-        </p>
-        <div className="mt-4 text-sm text-gray-400">
+        <p>{questions[questionIndex] || "Loading question..."}</p>        <div className="mt-4 text-sm text-gray-400">
           {role} · {mode} · {difficulty}
         </div>
       </div>

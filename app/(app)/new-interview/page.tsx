@@ -9,16 +9,37 @@ export default function NewInterview() {
   const [mode, setMode] = useState<"Friendly" | "Neutral" | "Stress">("Neutral");
   const [difficulty, setDifficulty] = useState<"Easy" | "Medium" | "Hard">("Medium");
 
-  const start = () => {
-    const params = new URLSearchParams({
-      role,
-      mode,
-      difficulty,
-    });
+  const start = async () => {
+    try {
+      const res = await fetch("http://localhost:8000/generate-questions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          role,
+          mode,
+          difficulty,
+        }),
+      });
 
-    router.push(`/interview?${params.toString()}`);
+      const data = await res.json();
+
+      // store questions
+      localStorage.setItem("interview_questions", JSON.stringify(data.questions));
+
+      const params = new URLSearchParams({
+        role,
+        mode,
+        difficulty,
+      });
+
+      router.push(`/interview?${params.toString()}`);
+
+    } catch (err) {
+      console.error("Question generation failed", err);
+    }
   };
-
   return (
     <div className="flex justify-center">
       <div className="bg-white/5 border border-white/10 rounded-2xl p-8 w-full max-w-xl">
@@ -43,11 +64,10 @@ export default function NewInterview() {
               <button
                 key={m}
                 onClick={() => setMode(m)}
-                className={`border rounded-lg p-3 text-center transition ${
-                  mode === m
+                className={`border rounded-lg p-3 text-center transition ${mode === m
                     ? "border-blue-500 bg-blue-500/10"
                     : "border-white/10 hover:border-blue-500/50"
-                }`}
+                  }`}
               >
                 {m}
               </button>
@@ -60,11 +80,10 @@ export default function NewInterview() {
               <button
                 key={d}
                 onClick={() => setDifficulty(d)}
-                className={`border rounded-lg p-3 text-center transition ${
-                  difficulty === d
+                className={`border rounded-lg p-3 text-center transition ${difficulty === d
                     ? "border-blue-500 bg-blue-500/10"
                     : "border-white/10 hover:border-blue-500/50"
-                }`}
+                  }`}
               >
                 {d}
               </button>
