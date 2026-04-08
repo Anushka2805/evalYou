@@ -29,11 +29,10 @@ export default function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-                  active
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition ${active
                     ? "bg-blue-600/20 text-blue-400"
                     : "text-gray-400 hover:bg-white/5"
-                }`}
+                  }`}
               >
                 <Icon size={18} />
                 {item.label}
@@ -41,6 +40,7 @@ export default function Sidebar() {
             );
           })}
         </nav>
+
       </div>
 
       <div className="border-t border-white/10 pt-4 text-sm text-gray-400">
@@ -53,6 +53,15 @@ export default function Sidebar() {
             <div className="text-xs">user@gmail.com</div>
           </div>
         </div>
+        <button
+          onClick={() => {
+            localStorage.removeItem("token");
+            window.location.href = "/auth/signin";
+          }}
+          className="mt-4 text-red-400 hover:text-red-300"
+        >
+          Logout
+        </button>
       </div>
     </aside>
   );

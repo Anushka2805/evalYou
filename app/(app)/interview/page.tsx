@@ -1,21 +1,30 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Mic, Square, StepForward, RotateCcw, Play } from "lucide-react";
+import { Mic, Square, StepForward, RotateCcw } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
 
-type State = "idle" | "recording" | "review";
+type State = "idle" | "recording" | "review" | "uploading";
 
 export default function Interview() {
+  const params = useSearchParams();
+  const router = useRouter();
+
+  const role = params.get("role") || "Software Engineer";
+  const mode = params.get("mode") || "Neutral";
+  const difficulty = params.get("difficulty") || "Medium";
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
 
   const [state, setState] = useState<State>("idle");
   const [questionIndex, setQuestionIndex] = useState(0);
+  const [questions, setQuestions] = useState<string[]>([]);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const total = 7;
-
+  const total = questions.length;
   // Start camera on mount
   useEffect(() => {
     const init = async () => {
@@ -25,47 +34,52 @@ export default function Interview() {
           audio: true,
         });
         setStream(s);
-        if (videoRef.current) {
-          videoRef.current.srcObject = s;
-        }
+        if (videoRef.current) videoRef.current.srcObject = s;
       } catch (err) {
-        console.error("Error accessing camera/mic:", err);
         alert("Could not access camera or microphone.");
       }
     };
-
     init();
 
     return () => {
-      // cleanup on unmount
-      if (stream) {
-        stream.getTracks().forEach((t) => t.stop());
-      }
+      if (stream) stream.getTracks().forEach((t) => t.stop());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const stored = localStorage.getItem("interview_questions");
+
+    if (stored) {
+      setQuestions(JSON.parse(stored));
+    } else {
+      // fallback question
+      setQuestions([
+        "Tell me about yourself."
+      ]);
+    }
+  }, []);
+
   const startRecording = () => {
     if (!stream) return;
-
     chunksRef.current = [];
     const recorder = new MediaRecorder(stream);
     mediaRecorderRef.current = recorder;
 
     recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) {
-        chunksRef.current.push(e.data);
-      }
+      if (e.data.size > 0) chunksRef.current.push(e.data);
     };
 
     recorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: "video/webm" });
       const url = URL.createObjectURL(blob);
-      setRecordedUrl(url);
+      setRecordedBlob(blob);
+      setPreviewUrl(url);
     };
 
     recorder.start();
-    setRecordedUrl(null);
+    setRecordedBlob(null);
+    setPreviewUrl(null);
     setState("recording");
   };
 
@@ -77,19 +91,132 @@ export default function Interview() {
   };
 
   const retake = () => {
-    setRecordedUrl(null);
+    setRecordedBlob(null);
+    setPreviewUrl(null);
     setState("idle");
   };
 
-  const next = () => {
-    if (questionIndex + 1 >= total) {
-      window.location.href = "/analyzing";
-    } else {
-      setQuestionIndex((q) => q + 1);
-      setRecordedUrl(null);
-      setState("idle");
+  // Upload + analyze
+  const finishInterview = async () => {
+    if (!recordedBlob) {
+      alert("No recording found!");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/auth/signin");
+      return;
+    }
+
+    try {
+      setState("uploading");
+
+      // 1) Upload
+      const form = new FormData();
+      form.append("file", recordedBlob, "answer.webm");
+      form.append("role", role);
+      form.append("mode", mode);
+      form.append("difficulty", difficulty);
+      form.append("question", questions[questionIndex] || "");
+      const uploadRes = await fetch("http://127.0.0.1:8000/upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: form,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const uploadData = await uploadRes.json();
+      const interviewId = uploadData.interview_id;
+
+      // 2) Analyze
+      const analyzeRes = await fetch(`http://127.0.0.1:8000/analyze/${interviewId}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!analyzeRes.ok) {
+        throw new Error("Analyze failed");
+      }
+
+      // 3) Go to results page
+      router.push(`/results?id=${interviewId}`);
+    } catch (err) {
+      console.error(err);
+      alert("Upload or analysis failed");
+      setState("review");
     }
   };
+
+  const next = async () => {
+  if (!recordedBlob) {
+    alert("Please record your answer first");
+    return;
+  }
+
+  try {
+    setState("uploading");
+
+    const token = localStorage.getItem("token");
+
+    const form = new FormData();
+    form.append("file", recordedBlob, "answer.webm");
+    form.append("role", role);
+    form.append("mode", mode);
+    form.append("difficulty", difficulty);
+    form.append("question", questions[questionIndex]);
+
+    const uploadRes = await fetch("http://127.0.0.1:8000/upload", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: form,
+    });
+
+    if (!uploadRes.ok) {
+      throw new Error("Upload failed");
+    }
+
+    const data = await uploadRes.json();
+    const interviewId = data.interview_id;
+
+    const analyzeRes = await fetch(
+      `http://127.0.0.1:8000/analyze/${interviewId}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!analyzeRes.ok) {
+      throw new Error("Analyze failed");
+    }
+
+    if (questionIndex + 1 >= total) {
+      router.push("/reports");
+    } else {
+      setQuestionIndex((q) => q + 1);
+      setRecordedBlob(null);
+      setPreviewUrl(null);
+      setState("idle");
+    }
+
+  } catch (err) {
+    console.error(err);
+    alert("Something went wrong!");
+    setState("review");
+  }
+};
 
   return (
     <div className="grid grid-cols-12 gap-6">
@@ -104,11 +231,9 @@ export default function Interview() {
             style={{ width: `${((questionIndex + 1) / total) * 100}%` }}
           />
         </div>
-        <p>
-          Can you explain the concept of object-oriented programming and how it
-          differs from procedural programming?
-        </p>
-        <div className="mt-4 text-sm text-gray-400">Mode: Neutral</div>
+        <p>{questions[questionIndex] || "Loading question..."}</p>        <div className="mt-4 text-sm text-gray-400">
+          {role} · {mode} · {difficulty}
+        </div>
       </div>
 
       {/* Center: Video */}
@@ -123,17 +248,17 @@ export default function Interview() {
         />
 
         {/* Playback preview */}
-        {state === "review" && recordedUrl && (
-          <video
-            src={recordedUrl}
-            controls
-            className="w-full h-full object-cover"
-          />
+        {state === "review" && previewUrl && (
+          <video src={previewUrl} controls className="w-full h-full object-cover" />
         )}
 
-        {/* Overlay text */}
+        {/* Overlay */}
         <div className="absolute top-4 left-4 text-sm text-gray-200 bg-black/50 px-3 py-1 rounded">
-          {state === "recording" ? "Recording..." : "Camera Preview"}
+          {state === "recording"
+            ? "Recording..."
+            : state === "uploading"
+              ? "Uploading..."
+              : "Camera Preview"}
         </div>
 
         {/* Controls */}
@@ -141,9 +266,9 @@ export default function Interview() {
           {state === "review" && (
             <button
               className="flex items-center gap-2 text-gray-300 hover:text-white"
-              onClick={retake}
+              onClick={next}
             >
-              <RotateCcw size={18} /> Retake
+              Finish <StepForward size={18} />
             </button>
           )}
 
@@ -168,9 +293,9 @@ export default function Interview() {
           {state === "review" && (
             <button
               className="flex items-center gap-2 text-gray-300 hover:text-white"
-              onClick={next}
+              onClick={retake}
             >
-              Next <StepForward size={18} />
+              <RotateCcw size={18} /> Retake
             </button>
           )}
         </div>
@@ -180,7 +305,7 @@ export default function Interview() {
       <div className="col-span-2 space-y-4">
         <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
           <div className="text-2xl font-bold">
-            {state === "recording" ? "● REC" : "00:00"}
+            {state === "recording" ? "● REC" : state === "uploading" ? "..." : "00:00"}
           </div>
           <div className="text-sm text-gray-400">Current answer</div>
         </div>
@@ -188,12 +313,6 @@ export default function Interview() {
           <div className="text-2xl font-bold">{questionIndex + 1}</div>
           <div className="text-sm text-gray-400">of {total}</div>
         </div>
-        <a
-          href="/analyzing"
-          className="block text-center bg-blue-600 py-2 rounded-lg hover:bg-blue-500 transition"
-        >
-          Save & Exit
-        </a>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
-import { useInterviewStore } from "@/store/useInterviewStore";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { BarChart3, Mic, Eye, Brain } from "lucide-react";
-import { useState } from "react";
 import TabButton from "@/components/TabButton";
 import {
   RadarChart,
@@ -12,18 +12,85 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-export default function Results() {
-  const { interviews, selectedId } = useInterviewStore();
-  const data = interviews.find((i) => i.id === selectedId) || interviews[0];
+type Scores = {
+  overall: number;
+  confidence: number;
+  communication: number;
+  body: number;
+  content: number;
+};
 
+type VoiceMetrics = {
+  wpm: number;
+  fillers: number;
+  pauses: number;
+  confidence: number;
+};
+
+type AnswerMetrics = {
+  relevance: number;
+  completeness: number;
+  clarity: number;
+  structure: number;
+};
+
+type BodyMetrics = {
+  eye_contact_pct: number;
+  head_movement: number;
+  engagement: number;
+};
+
+type Interview = {
+  id: string;
+  title: string;
+  date: string;
+  role: string;
+  mode: string;
+  difficulty: string;
+  scores: Scores;
+  transcript?: string;
+  voice_metrics?: VoiceMetrics;
+  answer_metrics?: AnswerMetrics;
+  body_metrics?: BodyMetrics;
+};
+
+export default function Results() {
+  const params = useSearchParams();
+  const id = params.get("id");
+  const token = localStorage.getItem("token");
+
+  const [data, setData] = useState<Interview | null>(null);
+  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"overview" | "voice" | "body" | "answers">("overview");
 
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!id) return;
+      const res = await fetch(`http://127.0.0.1:8000/results/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }); const json = await res.json();
+      setData(json);
+      setLoading(false);
+    };
+    fetchData();
+  }, [id]);
+
+  if (loading) {
+    return <div className="text-gray-400">Loading results...</div>;
+  }
+
+  if (!data) {
+    return <div className="text-red-400">No data found.</div>;
+  }
+
   const radarData = [
-    { metric: "Confidence", value: data.scores.confidence },
-    { metric: "Communication", value: data.scores.communication },
-    { metric: "Body", value: data.scores.body },
-    { metric: "Content", value: data.scores.content },
-    { metric: "Overall", value: data.scores.overall },
+    { metric: "Confidence", value: data?.scores?.confidence ?? 0 },
+    { metric: "Communication", value: data?.scores?.communication ?? 0 },
+    { metric: "Body", value: data?.scores?.body ?? 0 },
+    { metric: "Content", value: data?.scores?.content ?? 0 },
+    { metric: "Overall", value: data?.scores?.overall ?? 0 },
   ];
 
   return (
@@ -36,20 +103,39 @@ export default function Results() {
       </p>
 
       <div className="flex gap-2 mb-6">
-        <TabButton active={tab === "overview"} onClick={() => setTab("overview")} icon={<BarChart3 size={16} />} label="Overview" />
-        <TabButton active={tab === "voice"} onClick={() => setTab("voice")} icon={<Mic size={16} />} label="Voice" />
-        <TabButton active={tab === "body"} onClick={() => setTab("body")} icon={<Eye size={16} />} label="Body" />
-        <TabButton active={tab === "answers"} onClick={() => setTab("answers")} icon={<Brain size={16} />} label="Answers" />
+        <TabButton
+          active={tab === "overview"}
+          onClick={() => setTab("overview")}
+          icon={<BarChart3 size={16} />}
+          label="Overview"
+        />
+        <TabButton
+          active={tab === "voice"}
+          onClick={() => setTab("voice")}
+          icon={<Mic size={16} />}
+          label="Voice"
+        />
+        <TabButton
+          active={tab === "body"}
+          onClick={() => setTab("body")}
+          icon={<Eye size={16} />}
+          label="Body"
+        />
+        <TabButton
+          active={tab === "answers"}
+          onClick={() => setTab("answers")}
+          icon={<Brain size={16} />}
+          label="Answers"
+        />
       </div>
 
       {tab === "overview" && (
         <>
           <div className="grid md:grid-cols-5 gap-4 mb-8">
-            {Object.entries(data.scores).map(([k, v]) => (
-              <div key={k} className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
-                <div className="text-gray-400 text-sm capitalize">{k}</div>
-                <div className="text-3xl font-bold text-blue-400">{v}</div>
-              </div>
+            {Object.entries(data?.scores ?? {}).map(([k, v]) => (<div key={k} className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+              <div className="text-gray-400 text-sm capitalize">{k}</div>
+              <div className="text-3xl font-bold text-blue-400">{v}</div>
+            </div>
             ))}
           </div>
 
@@ -68,10 +154,101 @@ export default function Results() {
           </div>
         </>
       )}
+      {tab === "voice" && (
+        <div className="grid md:grid-cols-4 gap-4">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">WPM</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.voice_metrics?.wpm ?? "-"}
+            </div>
+          </div>
 
-      {tab !== "overview" && (
-        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-          Detailed metrics for {tab} will appear here.
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Fillers</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.voice_metrics?.fillers ?? "-"}
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Pauses</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.voice_metrics?.pauses ?? "-"}
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Voice Confidence</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.voice_metrics?.confidence ?? "-"}
+            </div>
+          </div>
+
+          {data.transcript && (
+            <div className="md:col-span-4 bg-white/5 border border-white/10 rounded-xl p-5">
+              <div className="text-gray-400 text-sm mb-2">Transcript</div>
+              <p className="text-sm leading-relaxed">{data.transcript}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "body" && (
+        <div className="grid md:grid-cols-3 gap-4">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Eye Contact %</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.body_metrics?.eye_contact_pct ?? "-"}
+            </div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Head Movement</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.body_metrics?.head_movement ?? "-"}
+            </div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Engagement</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.body_metrics?.engagement ?? "-"}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === "answers" && (
+        <div className="grid md:grid-cols-4 gap-4">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Relevance</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.answer_metrics?.relevance ?? "-"}
+            </div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Completeness</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.answer_metrics?.completeness ?? "-"}
+            </div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Clarity</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.answer_metrics?.clarity ?? "-"}
+            </div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center">
+            <div className="text-gray-400 text-sm">Structure</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {data.answer_metrics?.structure ?? "-"}
+            </div>
+          </div>
+
+          {data.transcript && (
+            <div className="md:col-span-4 bg-white/5 border border-white/10 rounded-xl p-5">
+              <div className="text-gray-400 text-sm mb-2">Transcript</div>
+              <p className="text-sm leading-relaxed">{data.transcript}</p>
+            </div>
+          )}
         </div>
       )}
     </div>
